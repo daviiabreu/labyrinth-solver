@@ -1,4 +1,7 @@
-import sys, pygame
+import sys
+
+import pygame
+
 pygame.init()
 
 
@@ -12,7 +15,8 @@ def main():
     ballrect = ball.get_rect()
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT: sys.exit()
+            if event.type == pygame.QUIT:
+                sys.exit()
 
         ballrect = ballrect.move(speed)
         if ballrect.left < 0 or ballrect.right > width:
