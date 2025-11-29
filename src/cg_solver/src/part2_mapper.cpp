@@ -8,7 +8,8 @@
 #include <chrono>
 #include <thread>
 #include <stack>
-#include <unordered_set>
+#include <set>
+#include <map>
 
 class Part2Mapper : public rclcpp::Node
 {
@@ -49,11 +50,12 @@ private:
     bool first_sensor_received_ = false;
 
     std::stack<Position> exploration_stack_;
-    std::unordered_set<Position, PositionHash> visited_dfs_;
+    std::set<Position> visited_dfs_; // Simplificado: set ao invés de unordered_set
 
     void sensor_callback(const cg_interfaces::msg::RobotSensors::ConstSharedPtr msg)
     {
-        std::unordered_map<std::string, std::string> sensors = {
+        // Mapa simples com dados dos 8 sensores
+        std::map<std::string, std::string> sensors = {
             {"up", msg->up},
             {"down", msg->down},
             {"left", msg->left},

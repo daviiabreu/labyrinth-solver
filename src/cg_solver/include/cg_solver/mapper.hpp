@@ -4,32 +4,35 @@
 #include "cg_solver/utils.hpp"
 #include <vector>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
+#include <map>
 
+// Tipos de células no mapa
 enum class CellType
 {
-    UNKNOWN,
-    FREE,
-    BLOCKED,
-    ROBOT,
-    TARGET
+    UNKNOWN, // Ainda não explorado
+    FREE,    // Espaço livre (branco)
+    BLOCKED, // Bloqueado (preto)
+    ROBOT,   // Posição do robô (azul)
+    TARGET   // Alvo (vermelho)
 };
 
+// Classe responsável por mapear o labirinto incrementalmente
 class Mapper
 {
 public:
     Mapper();
 
+    // Atualiza o mapa com dados dos sensores
     void update_map(const Position &robot_pos,
-                    const std::unordered_map<std::string, std::string> &sensors);
+                    const std::map<std::string, std::string> &sensors);
 
     CellType get_cell(const Position &pos) const;
-
     bool is_explored(const Position &pos) const;
 
+    // Retorna células na fronteira (não exploradas adjacentes a exploradas)
     std::vector<Position> get_frontier() const;
 
+    // Converte o mapa para formato grid
     std::vector<std::vector<std::string>> to_grid() const;
 
     void print_map() const;
@@ -41,7 +44,7 @@ public:
     bool target_found() const { return target_found_; }
 
 private:
-    std::unordered_map<Position, CellType, PositionHash> map_;
+    std::map<Position, CellType> map_; // Mapa simples (Position -> CellType)
     Position robot_pos_;
     Position target_pos_;
     bool target_found_;

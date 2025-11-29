@@ -3,30 +3,34 @@
 #include <algorithm>
 #include <queue>
 #include <stack>
-#include <unordered_map>
-#include <unordered_set>
+#include <map>
+#include <set>
 
 Pathfinder::Pathfinder(const std::vector<std::vector<std::string>> &grid)
     : grid_(grid), rows_(grid.size()), cols_(grid[0].size()) {}
 
+// Verifica se uma posição está dentro dos limites do grid
 bool Pathfinder::is_valid_position(const Position &pos) const
 {
     return pos.row >= 0 && pos.row < rows_ &&
            pos.col >= 0 && pos.col < cols_;
 }
 
+// Verifica se uma célula é transitável (não é bloqueada 'b')
 bool Pathfinder::is_walkable(const Position &pos) const
 {
     if (!is_valid_position(pos))
         return false;
     std::string cell = grid_[pos.row][pos.col];
-    return cell != "b";
+    return cell != "b"; // 'b' = bloqueado (preto)
 }
 
+// Retorna os vizinhos válidos de uma posição
 std::vector<Position> Pathfinder::get_neighbors(const Position &pos)
 {
     std::vector<Position> neighbors;
 
+    // Tenta cada uma das 4 direções
     for (const auto &dir : DIRECTIONS)
     {
         Position neighbor(pos.row + dir.row, pos.col + dir.col);
@@ -39,119 +43,121 @@ std::vector<Position> Pathfinder::get_neighbors(const Position &pos)
     return neighbors;
 }
 
-std::vector<Position> Pathfinder::reconstruct_path(Node *goal_node)
+// Reconstrói o caminho usando o mapa de pais
+std::vector<Position> Pathfinder::reconstruct_path(
+    const std::map<Position, Position> &parent_map,
+    const Position &start,
+    const Position &goal)
 {
     std::vector<Position> path;
-    Node *current = goal_node;
+    Position current = goal;
 
-    while (current != nullptr)
+    // Volta do objetivo até o início seguindo os pais
+    while (current != start)
     {
-        path.push_back(current->pos);
-        current = current->parent;
+        path.push_back(current);
+        current = parent_map.at(current);
     }
+    path.push_back(start);
 
+    // Inverte para obter o caminho do início ao objetivo
     std::reverse(path.begin(), path.end());
     return path;
 }
 
+// BFS - Busca em Largura (encontra o caminho mais curto)
+// Parte 1: usa BFS porque garante o caminho ótimo
 std::vector<Position> Pathfinder::find_path_bfs(
     const Position &start, const Position &goal)
 {
+    // Fila para explorar posições (primeiro a entrar, primeiro a sair)
+    std::queue<Position> queue;
 
-    std::queue<Node *> queue;
-    std::unordered_set<Position, PositionHash> visited;
+    // Conjunto de posições já visitadas
+    std::set<Position> visited;
 
-    Node *start_node = new Node(start);
-    queue.push(start_node);
+    // Mapa que guarda o pai de cada posição (para reconstruir o caminho)
+    std::map<Position, Position> parent_map;
+
+    // Começa pela posição inicial
+    queue.push(start);
     visited.insert(start);
 
-    std::vector<Node *> all_nodes;
-    all_nodes.push_back(start_node);
-
+    // Enquanto houver posições para explorar
     while (!queue.empty())
     {
-        Node *current = queue.front();
+        Position current = queue.front();
         queue.pop();
 
-        if (current->pos == goal)
+        // Chegou no objetivo? Reconstrói e retorna o caminho
+        if (current == goal)
         {
-            auto path = reconstruct_path(current);
-            for (auto node : all_nodes)
-            {
-                delete node;
-            }
-            return path;
+            return reconstruct_path(parent_map, start, goal);
         }
 
-        for (const Position &neighbor_pos : get_neighbors(current->pos))
+        // Explora cada vizinho
+        for (const Position &neighbor : get_neighbors(current))
         {
-            if (visited.count(neighbor_pos))
+            // Se já visitou, pula
+            if (visited.count(neighbor))
                 continue;
 
-            visited.insert(neighbor_pos);
-            Node *neighbor_node = new Node(neighbor_pos, current);
-            all_nodes.push_back(neighbor_node);
-            queue.push(neighbor_node);
+            // Marca como visitado e guarda o pai
+            visited.insert(neighbor);
+            parent_map[neighbor] = current;
+            queue.push(neighbor);
         }
     }
 
-    for (auto node : all_nodes)
-    {
-        delete node;
-    }
-
+    // Não encontrou caminho
     return {};
 }
 
+// DFS - Busca em Profundidade (explora fundo antes de voltar)
+// Parte 2: usa DFS para explorar o labirinto desconhecido
 std::vector<Position> Pathfinder::find_path_dfs(
     const Position &start, const Position &goal)
 {
+    // Pilha para explorar posições (último a entrar, primeiro a sair)
+    std::stack<Position> stack;
 
-    std::stack<Node *> stack;
-    std::unordered_set<Position, PositionHash> visited;
+    // Conjunto de posições já visitadas
+    std::set<Position> visited;
 
-    Node *start_node = new Node(start);
-    stack.push(start_node);
+    // Mapa que guarda o pai de cada posição
+    std::map<Position, Position> parent_map;
+
+    // Começa pela posição inicial
+    stack.push(start);
     visited.insert(start);
 
-    std::vector<Node *> all_nodes;
-    all_nodes.push_back(start_node);
-
+    // Enquanto houver posições para explorar
     while (!stack.empty())
     {
-        Node *current = stack.top();
+        Position current = stack.top();
         stack.pop();
 
-        if (current->pos == goal)
+        // Chegou no objetivo? Reconstrói e retorna o caminho
+        if (current == goal)
         {
-            auto path = reconstruct_path(current);
-            for (auto node : all_nodes)
-            {
-                delete node;
-            }
-            return path;
+            return reconstruct_path(parent_map, start, goal);
         }
 
-        auto neighbors = get_neighbors(current->pos);
-        std::reverse(neighbors.begin(), neighbors.end());
-
-        for (const Position &neighbor_pos : neighbors)
+        // Explora cada vizinho
+        for (const Position &neighbor : get_neighbors(current))
         {
-            if (visited.count(neighbor_pos))
+            // Se já visitou, pula
+            if (visited.count(neighbor))
                 continue;
 
-            visited.insert(neighbor_pos);
-            Node *neighbor_node = new Node(neighbor_pos, current);
-            all_nodes.push_back(neighbor_node);
-            stack.push(neighbor_node);
+            // Marca como visitado e guarda o pai
+            visited.insert(neighbor);
+            parent_map[neighbor] = current;
+            stack.push(neighbor);
         }
     }
 
-    for (auto node : all_nodes)
-    {
-        delete node;
-    }
-
+    // Não encontrou caminho
     return {};
 }
 

@@ -1,6 +1,7 @@
 #include "cg_solver/mapper.hpp"
 #include <iostream>
 #include <algorithm>
+#include <set>
 
 Mapper::Mapper()
     : robot_pos_(0, 0), target_pos_(0, 0), target_found_(false),
@@ -28,7 +29,7 @@ void Mapper::update_bounds(const Position &pos)
 }
 
 void Mapper::update_map(const Position &robot_pos,
-                        const std::unordered_map<std::string, std::string> &sensors)
+                        const std::map<std::string, std::string> &sensors)
 {
     robot_pos_ = robot_pos;
     map_[robot_pos] = CellType::ROBOT;
@@ -90,16 +91,19 @@ bool Mapper::is_explored(const Position &pos) const
 std::vector<Position> Mapper::get_frontier() const
 {
     std::vector<Position> frontier;
-    std::unordered_set<Position, PositionHash> checked;
+    std::set<Position> checked; // Usa set simples ao invés de unordered_set
 
+    // Para cada célula explorada que é livre ou tem o robô
     for (const auto &[pos, type] : map_)
     {
         if (type == CellType::FREE || type == CellType::ROBOT)
         {
+            // Verifica vizinhos nas 4 direções
             for (const auto &dir : DIRECTIONS)
             {
                 Position neighbor(pos.row + dir.row, pos.col + dir.col);
 
+                // Se o vizinho não foi explorado, é fronteira
                 if (!is_explored(neighbor) && !checked.count(neighbor))
                 {
                     frontier.push_back(neighbor);
