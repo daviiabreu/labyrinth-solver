@@ -6,7 +6,6 @@
 #include <string>
 #include <map>
 
-// Classe que implementa algoritmos de busca de caminho
 class Pathfinder
 {
 public:

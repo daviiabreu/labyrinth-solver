@@ -91,7 +91,7 @@ bool Mapper::is_explored(const Position &pos) const
 std::vector<Position> Mapper::get_frontier() const
 {
     std::vector<Position> frontier;
-    std::set<Position> checked; // Usa set simples ao invés de unordered_set
+    std::set<Position> checked;
 
     // Para cada célula explorada que é livre ou tem o robô
     for (const auto &[pos, type] : map_)
@@ -155,6 +155,12 @@ std::vector<std::vector<std::string>> Mapper::to_grid() const
 void Mapper::print_map() const
 {
     auto grid = to_grid();
+
+    if (grid.empty() || grid[0].empty())
+    {
+        std::cout << "\nMapa vazio" << std::endl;
+        return;
+    }
 
     std::cout << "\nMapa: " << grid.size() << "x" << grid[0].size() << std::endl;
     std::cout << "Explorado: " << count_explored() << std::endl;

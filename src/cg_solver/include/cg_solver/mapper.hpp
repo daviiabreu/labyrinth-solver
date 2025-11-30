@@ -29,7 +29,6 @@ public:
     CellType get_cell(const Position &pos) const;
     bool is_explored(const Position &pos) const;
 
-    // Retorna células na fronteira (não exploradas adjacentes a exploradas)
     std::vector<Position> get_frontier() const;
 
     // Converte o mapa para formato grid
@@ -44,7 +43,7 @@ public:
     bool target_found() const { return target_found_; }
 
 private:
-    std::map<Position, CellType> map_; // Mapa simples (Position -> CellType)
+    std::map<Position, CellType> map_; // Position -> CellType
     Position robot_pos_;
     Position target_pos_;
     bool target_found_;

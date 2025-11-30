@@ -7,7 +7,7 @@
 #include <set>
 
 Pathfinder::Pathfinder(const std::vector<std::vector<std::string>> &grid)
-    : grid_(grid), rows_(grid.size()), cols_(grid[0].size()) {}
+    : grid_(grid), rows_(grid.size()), cols_(grid.empty() ? 0 : grid[0].size()) {}
 
 // Verifica se uma posição está dentro dos limites do grid
 bool Pathfinder::is_valid_position(const Position &pos) const
@@ -65,31 +65,25 @@ std::vector<Position> Pathfinder::reconstruct_path(
     return path;
 }
 
-// BFS - Busca em Largura (encontra o caminho mais curto)
-// Parte 1: usa BFS porque garante o caminho ótimo
+// BFS
 std::vector<Position> Pathfinder::find_path_bfs(
     const Position &start, const Position &goal)
 {
-    // Fila para explorar posições (primeiro a entrar, primeiro a sair)
     std::queue<Position> queue;
 
-    // Conjunto de posições já visitadas
     std::set<Position> visited;
 
-    // Mapa que guarda o pai de cada posição (para reconstruir o caminho)
     std::map<Position, Position> parent_map;
 
-    // Começa pela posição inicial
     queue.push(start);
     visited.insert(start);
 
-    // Enquanto houver posições para explorar
     while (!queue.empty())
     {
         Position current = queue.front();
         queue.pop();
 
-        // Chegou no objetivo? Reconstrói e retorna o caminho
+        // Se chegou no objetivo reconstrói e retorna o caminho
         if (current == goal)
         {
             return reconstruct_path(parent_map, start, goal);
@@ -113,12 +107,10 @@ std::vector<Position> Pathfinder::find_path_bfs(
     return {};
 }
 
-// DFS - Busca em Profundidade (explora fundo antes de voltar)
-// Parte 2: usa DFS para explorar o labirinto desconhecido
+// DFS
 std::vector<Position> Pathfinder::find_path_dfs(
     const Position &start, const Position &goal)
 {
-    // Pilha para explorar posições (último a entrar, primeiro a sair)
     std::stack<Position> stack;
 
     // Conjunto de posições já visitadas

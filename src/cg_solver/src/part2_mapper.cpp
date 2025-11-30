@@ -254,6 +254,14 @@ private:
         {
             RCLCPP_INFO(get_logger(), "Rota otima confirmada");
         }
+        else if (path_mapped.empty())
+        {
+            RCLCPP_WARN(get_logger(), "Nenhum caminho encontrado no mapa mapeado");
+        }
+        else if (path_real.empty())
+        {
+            RCLCPP_WARN(get_logger(), "Nenhum caminho encontrado no mapa real");
+        }
         else
         {
             double efficiency = (double)path_real.size() / path_mapped.size() * 100.0;
