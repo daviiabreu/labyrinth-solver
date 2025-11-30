@@ -2,6 +2,10 @@
 
 Jogo de navegação em labirinto usando ROS 2.
 
+## Demo
+
+![Demo Video](./video.mov)
+
 ## Solver Automático (cg_solver)
 
 Implementação em C++ de solução automática para navegação em labirintos usando ROS 2.
