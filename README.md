@@ -4,9 +4,7 @@ Jogo de navegação em labirinto usando ROS 2.
 
 ## Demo
 
-<video width="800" controls>
-  <source src="./video.mov" type="video/quicktime">
-</video>
+![Demo Video](./video.mov)
 
 ## Solver Automático (cg_solver)
 
