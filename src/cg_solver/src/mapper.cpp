@@ -3,6 +3,13 @@
 #include <algorithm>
 #include <set>
 
+/**
+ * Mapper: Constrói um mapa incremental do labirinto
+ *
+ * Usa coordenadas relativas começando em (0,0)
+ * Mantém track de min/max para converter para grid normalizado
+ */
+
 Mapper::Mapper()
     : robot_pos_(0, 0), target_pos_(0, 0), target_found_(false),
       min_row_(0), max_row_(0), min_col_(0), max_col_(0) {}
@@ -28,6 +35,9 @@ void Mapper::update_bounds(const Position &pos)
     max_col_ = std::max(max_col_, pos.col);
 }
 
+/**
+ * Atualiza o mapa com leituras dos 8 sensores
+ */
 void Mapper::update_map(const Position &robot_pos,
                         const std::map<std::string, std::string> &sensors)
 {
@@ -35,10 +45,11 @@ void Mapper::update_map(const Position &robot_pos,
     map_[robot_pos] = CellType::ROBOT;
     update_bounds(robot_pos);
 
+    // 8 direções: 4 cardeais + 4 diagonais
     struct SensorDir
     {
         std::string name;
-        int dr, dc;
+        int dr, dc; // delta row, delta col
     };
 
     std::vector<SensorDir> directions = {
@@ -51,6 +62,7 @@ void Mapper::update_map(const Position &robot_pos,
         {"down_left", -1, -1},
         {"down_right", 1, -1}};
 
+    // Para cada sensor, atualiza a célula adjacente
     for (const auto &dir : directions)
     {
         if (sensors.count(dir.name))
@@ -58,6 +70,7 @@ void Mapper::update_map(const Position &robot_pos,
             Position pos(robot_pos.row + dir.dr, robot_pos.col + dir.dc);
             CellType cell = char_to_cell_type(sensors.at(dir.name));
 
+            // Não sobrescreve alvo já encontrado
             if (!(map_.count(pos) && map_[pos] == CellType::TARGET))
             {
                 map_[pos] = cell;
@@ -77,9 +90,7 @@ void Mapper::update_map(const Position &robot_pos,
 CellType Mapper::get_cell(const Position &pos) const
 {
     if (map_.count(pos))
-    {
         return map_.at(pos);
-    }
     return CellType::UNKNOWN;
 }
 
@@ -88,22 +99,22 @@ bool Mapper::is_explored(const Position &pos) const
     return map_.count(pos) > 0;
 }
 
+/**
+ * Retorna células de fronteira (não exploradas adjacentes a exploradas)
+ */
 std::vector<Position> Mapper::get_frontier() const
 {
     std::vector<Position> frontier;
     std::set<Position> checked;
 
-    // Para cada célula explorada que é livre ou tem o robô
     for (const auto &[pos, type] : map_)
     {
         if (type == CellType::FREE || type == CellType::ROBOT)
         {
-            // Verifica vizinhos nas 4 direções
             for (const auto &dir : DIRECTIONS)
             {
                 Position neighbor(pos.row + dir.row, pos.col + dir.col);
 
-                // Se o vizinho não foi explorado, é fronteira
                 if (!is_explored(neighbor) && !checked.count(neighbor))
                 {
                     frontier.push_back(neighbor);
@@ -116,14 +127,20 @@ std::vector<Position> Mapper::get_frontier() const
     return frontier;
 }
 
+/**
+ * Converte mapa para grid 2D normalizado
+ * Grid começa em (0,0) aplicando offset (min_row, min_col)
+ */
 std::vector<std::vector<std::string>> Mapper::to_grid() const
 {
     int rows = max_row_ - min_row_ + 1;
     int cols = max_col_ - min_col_ + 1;
 
+    // Inicializa grid com paredes
     std::vector<std::vector<std::string>> grid(rows,
                                                std::vector<std::string>(cols, "b"));
 
+    // Preenche com células exploradas
     for (const auto &[pos, type] : map_)
     {
         int r = pos.row - min_row_;

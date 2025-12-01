@@ -6,34 +6,41 @@
 #include <string>
 #include <map>
 
+/**
+ * Pathfinder: Encontra caminhos em um grid 2D
+ *
+ * Implementa dois algoritmos:
+ * - BFS: Caminho mais curto (usado na validação)
+ * - DFS: Exploração em profundidade
+ */
 class Pathfinder
 {
 public:
     Pathfinder(const std::vector<std::vector<std::string>> &grid);
 
-    // BFS: encontra o caminho mais curto (Parte 1)
+    // BFS: Encontra o caminho MAIS CURTO
     std::vector<Position> find_path_bfs(const Position &start, const Position &goal);
 
-    // DFS: explora em profundidade (Parte 2)
+    // DFS: Encontra UM caminho (não necessariamente o mais curto)
     std::vector<Position> find_path_dfs(const Position &start, const Position &goal);
 
+    // Utilidades
     bool is_valid_position(const Position &pos) const;
     bool is_walkable(const Position &pos) const;
     void print_grid() const;
     void print_path(const std::vector<Position> &path) const;
 
 private:
-    std::vector<std::vector<std::string>> grid_; // O mapa do labirinto
-    int rows_;                                   // Número de linhas
-    int cols_;                                   // Número de colunas
+    std::vector<std::vector<std::string>> grid_; // Grid do labirinto
+    int rows_, cols_;                            // Dimensões
 
-    // Reconstrói o caminho a partir do mapa de pais
+    // Helper: reconstrói caminho do objetivo até o início
     std::vector<Position> reconstruct_path(
         const std::map<Position, Position> &parent_map,
         const Position &start,
         const Position &goal);
 
-    // Retorna vizinhos válidos de uma posição
+    // Helper: retorna vizinhos válidos (não bloqueados)
     std::vector<Position> get_neighbors(const Position &pos);
 };
 
