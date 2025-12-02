@@ -1,10 +1,20 @@
 #include <rclcpp/rclcpp.hpp>
-#include <rclcpp/executors.hpp>
 #include "cg_interfaces/srv/get_map.hpp"
 #include "cg_interfaces/srv/move_cmd.hpp"
-#include "cg_solver/pathfinder.hpp"
 #include <chrono>
 #include <thread>
+#include <queue>
+#include <set>
+#include <map>
+#include <algorithm>
+
+// Simple Position for Part1
+struct Pos {
+    int row, col;
+    Pos(int r = 0, int c = 0) : row(r), col(c) {}
+    bool operator==(const Pos &o) const { return row == o.row && col == o.col; }
+    bool operator<(const Pos &o) const { return row != o.row ? row < o.row : col < o.col; }
+};
 
 /**
  * Part1Solver: Resolve labirinto com mapa completo
@@ -25,13 +35,8 @@ public:
 
         RCLCPP_INFO(get_logger(), "Part 1 Solver started");
 
-        // Aguarda serviços
-        while (!map_client_->wait_for_service(std::chrono::seconds(1)))
-        {
-        }
-        while (!move_client_->wait_for_service(std::chrono::seconds(1)))
-        {
-        }
+        map_client_->wait_for_service();
+        move_client_->wait_for_service();
     }
 
     void run() { solve(); }
@@ -40,47 +45,20 @@ private:
     rclcpp::Client<cg_interfaces::srv::GetMap>::SharedPtr map_client_;
     rclcpp::Client<cg_interfaces::srv::MoveCmd>::SharedPtr move_client_;
 
-    /**
-     * Algoritmo principal
-     */
     void solve()
     {
         // 1. Obter mapa completo
-        RCLCPP_INFO(get_logger(), "Getting complete map...");
         auto grid = get_complete_map();
 
-        if (grid.empty())
-        {
-            RCLCPP_ERROR(get_logger(), "Failed to get map!");
-            return;
-        }
-
         // 2. Encontrar posições
-        Position robot_pos, target_pos;
-        if (!find_robot_and_target(grid, robot_pos, target_pos))
-        {
-            RCLCPP_ERROR(get_logger(), "Robot or target not found in map!");
-            return;
-        }
-
-        RCLCPP_INFO(get_logger(), "Robot: (%d, %d)", robot_pos.row, robot_pos.col);
-        RCLCPP_INFO(get_logger(), "Target: (%d, %d)", target_pos.row, target_pos.col);
+        Pos robot_pos, target_pos;
+        find_robot_and_target(grid, robot_pos, target_pos);
 
         // 3. Calcular caminho ótimo (BFS)
-        RCLCPP_INFO(get_logger(), "Calculating optimal path with BFS...");
-        Pathfinder pathfinder(grid);
-        auto path = pathfinder.find_path_bfs(robot_pos, target_pos);
-
-        if (path.empty())
-        {
-            RCLCPP_ERROR(get_logger(), "No path found!");
-            return;
-        }
-
-        pathfinder.print_path(path);
+        auto path = find_path_bfs(grid, robot_pos, target_pos);
+        RCLCPP_INFO(get_logger(), "Path: %zu steps", path.size());
 
         // 4. Executar caminho
-        RCLCPP_INFO(get_logger(), "Executing path...");
         execute_path(path);
 
         RCLCPP_INFO(get_logger(), "✓ Part 1 complete!");
@@ -93,96 +71,108 @@ private:
     {
         auto request = std::make_shared<cg_interfaces::srv::GetMap::Request>();
         auto future = map_client_->async_send_request(request);
-
-        rclcpp::executors::SingleThreadedExecutor executor;
-        executor.add_node(shared_from_this());
-
-        if (executor.spin_until_future_complete(future, std::chrono::seconds(5)) !=
-            rclcpp::FutureReturnCode::SUCCESS)
-        {
-            return {};
-        }
-
-        auto response = future.get();
-        int rows = response->occupancy_grid_shape[0];
-        int cols = response->occupancy_grid_shape[1];
+        
+        while (rclcpp::ok() && future.wait_for(std::chrono::milliseconds(100)) != std::future_status::ready)
+            rclcpp::spin_some(this->get_node_base_interface());
+        
+        auto result = future.get();
+        int rows = result->occupancy_grid_shape[0];
+        int cols = result->occupancy_grid_shape[1];
 
         std::vector<std::vector<std::string>> grid(rows, std::vector<std::string>(cols));
         for (int i = 0; i < rows; i++)
             for (int j = 0; j < cols; j++)
-                grid[i][j] = response->occupancy_grid_flattened[i * cols + j];
+                grid[i][j] = result->occupancy_grid_flattened[i * cols + j];
 
         return grid;
     }
 
-    /**
-     * Encontra posições do robô ('r') e alvo ('t') no grid
-     */
-    bool find_robot_and_target(const std::vector<std::vector<std::string>> &grid,
-                               Position &robot, Position &target)
+    void find_robot_and_target(const std::vector<std::vector<std::string>> &grid,
+                               Pos &robot, Pos &target)
     {
-        bool found_robot = false, found_target = false;
-
         for (size_t i = 0; i < grid.size(); i++)
-        {
             for (size_t j = 0; j < grid[i].size(); j++)
             {
-                if (grid[i][j] == "r")
+                if (grid[i][j] == "r") robot = Pos(i, j);
+                if (grid[i][j] == "t") target = Pos(i, j);
+            }
+    }
+
+    // BFS pathfinding with CORRECT grid[row][col] indexing
+    std::vector<Pos> find_path_bfs(const std::vector<std::vector<std::string>> &grid,
+                                   const Pos &start, const Pos &goal)
+    {
+        const std::vector<Pos> dirs = {{-1,0}, {1,0}, {0,-1}, {0,1}}; // up, down, left, right
+        
+        std::queue<Pos> queue;
+        std::set<Pos> visited;
+        std::map<Pos, Pos> parent;
+        
+        queue.push(start);
+        visited.insert(start);
+        
+        while (!queue.empty())
+        {
+            Pos cur = queue.front();
+            queue.pop();
+            
+            if (cur == goal)
+            {
+                std::vector<Pos> path;
+                for (Pos p = goal; !(p == start); p = parent[p])
+                    path.push_back(p);
+                path.push_back(start);
+                std::reverse(path.begin(), path.end());
+                return path;
+            }
+            
+            for (const auto &dir : dirs)
+            {
+                Pos next(cur.row + dir.row, cur.col + dir.col);
+                if (next.row >= 0 && next.row < (int)grid.size() &&
+                    next.col >= 0 && next.col < (int)grid[0].size() &&
+                    grid[next.row][next.col] != "b" && !visited.count(next))
                 {
-                    robot = Position(i, j);
-                    found_robot = true;
-                }
-                if (grid[i][j] == "t")
-                {
-                    target = Position(i, j);
-                    found_target = true;
+                    visited.insert(next);
+                    parent[next] = cur;
+                    queue.push(next);
                 }
             }
         }
-
-        return found_robot && found_target;
+        return {};
     }
 
     /**
      * Executa sequência de movimentos do caminho
      */
-    void execute_path(const std::vector<Position> &path)
+    void execute_path(const std::vector<Pos> &path)
     {
         for (size_t i = 1; i < path.size(); i++)
         {
-            Position current = path[i - 1];
-            Position next = path[i];
+            int dr = path[i].row - path[i-1].row;
+            int dc = path[i].col - path[i-1].col;
+            
+            std::string dir_str;
+            if (dr == -1) dir_str = "up";
+            else if (dr == 1) dir_str = "down";
+            else if (dc == -1) dir_str = "left";
+            else if (dc == 1) dir_str = "right";
 
-            // Calcula direção do movimento
-            Position direction(next.row - current.row, next.col - current.col);
-            std::string dir_str = direction_to_string(direction);
-
-            // Envia comando de movimento
             auto request = std::make_shared<cg_interfaces::srv::MoveCmd::Request>();
             request->direction = dir_str;
             auto future = move_client_->async_send_request(request);
+            
+            while (rclcpp::ok() && future.wait_for(std::chrono::milliseconds(100)) != std::future_status::ready)
+                rclcpp::spin_some(this->get_node_base_interface());
+            
+            auto result = future.get();
 
-            rclcpp::executors::SingleThreadedExecutor executor;
-            executor.add_node(shared_from_this());
+            if (result->success)
+                RCLCPP_INFO(get_logger(), "Step %zu: %s", i, dir_str.c_str());
+            else
+                RCLCPP_WARN(get_logger(), "Move %s blocked!", dir_str.c_str());
 
-            if (executor.spin_until_future_complete(future, std::chrono::seconds(5)) ==
-                rclcpp::FutureReturnCode::SUCCESS)
-            {
-                auto response = future.get();
-
-                if (response->success)
-                {
-                    RCLCPP_INFO(get_logger(), "Step %zu: %s → (%d, %d)",
-                                i, dir_str.c_str(),
-                                response->robot_pos[0], response->robot_pos[1]);
-                }
-                else
-                {
-                    RCLCPP_WARN(get_logger(), "Move %s blocked!", dir_str.c_str());
-                }
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
     }
 };

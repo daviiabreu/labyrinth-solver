@@ -45,7 +45,7 @@ struct Position
 };
 
 /**
- * Direções cardeais de movimento
+ * Direções cardeais de movimento (para Part2 coordinate system)
  *
  * Mapeamento direção → offset:
  * - up:    (0, +1)  → aumenta coluna (sobe)
@@ -61,18 +61,14 @@ const std::vector<Position> DIRECTIONS = {
 };
 
 /**
- * Converte offset de direção para comando string
+ * Converte offset de direção para comando string (Part2 coordinate system)
  */
 inline std::string direction_to_string(const Position &dir)
 {
-    if (dir.col == 1)
-        return "up";
-    if (dir.col == -1)
-        return "down";
-    if (dir.row == -1)
-        return "left";
-    if (dir.row == 1)
-        return "right";
+    if (dir.col == 1) return "up";
+    if (dir.col == -1) return "down";
+    if (dir.row == -1) return "left";
+    if (dir.row == 1) return "right";
     return "";
 }
 

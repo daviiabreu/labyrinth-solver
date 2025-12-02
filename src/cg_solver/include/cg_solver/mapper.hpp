@@ -46,8 +46,7 @@ public:
 
     // Utilidades
     void print_map() const;
-    int count_explored() const;
-    int count_unknown() const;
+    int count_explored() const { return map_.size(); }
 
     // Posições (coordenadas originais)
     Position get_robot_position() const { return robot_pos_; }

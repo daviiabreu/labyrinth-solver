@@ -46,35 +46,21 @@ void Mapper::update_map(const Position &robot_pos,
     update_bounds(robot_pos);
 
     // 8 direções: 4 cardeais + 4 diagonais
-    struct SensorDir
-    {
-        std::string name;
-        int dr, dc; // delta row, delta col
-    };
+    const std::vector<std::pair<std::string, std::pair<int, int>>> directions = {
+        {"up", {0, 1}}, {"down", {0, -1}}, {"left", {-1, 0}}, {"right", {1, 0}},
+        {"up_left", {-1, 1}}, {"up_right", {1, 1}}, {"down_left", {-1, -1}}, {"down_right", {1, -1}}};
 
-    std::vector<SensorDir> directions = {
-        {"up", 0, 1},
-        {"down", 0, -1},
-        {"left", -1, 0},
-        {"right", 1, 0},
-        {"up_left", -1, 1},
-        {"up_right", 1, 1},
-        {"down_left", -1, -1},
-        {"down_right", 1, -1}};
-
-    // Para cada sensor, atualiza a célula adjacente
-    for (const auto &dir : directions)
+    for (const auto &[name, offset] : directions)
     {
-        if (sensors.count(dir.name))
+        if (sensors.count(name))
         {
-            Position pos(robot_pos.row + dir.dr, robot_pos.col + dir.dc);
-            CellType cell = char_to_cell_type(sensors.at(dir.name));
+            Position pos(robot_pos.row + offset.first, robot_pos.col + offset.second);
+            CellType cell = char_to_cell_type(sensors.at(name));
 
-            // Não sobrescreve alvo já encontrado
-            if (!(map_.count(pos) && map_[pos] == CellType::TARGET))
-            {
-                map_[pos] = cell;
-            }
+            if (map_.count(pos) && map_[pos] == CellType::TARGET)
+                continue;
+
+            map_[pos] = cell;
 
             if (cell == CellType::TARGET)
             {
@@ -89,14 +75,12 @@ void Mapper::update_map(const Position &robot_pos,
 
 CellType Mapper::get_cell(const Position &pos) const
 {
-    if (map_.count(pos))
-        return map_.at(pos);
-    return CellType::UNKNOWN;
+    return map_.count(pos) ? map_.at(pos) : CellType::UNKNOWN;
 }
 
 bool Mapper::is_explored(const Position &pos) const
 {
-    return map_.count(pos) > 0;
+    return map_.count(pos);
 }
 
 /**
@@ -104,27 +88,22 @@ bool Mapper::is_explored(const Position &pos) const
  */
 std::vector<Position> Mapper::get_frontier() const
 {
-    std::vector<Position> frontier;
-    std::set<Position> checked;
+    std::set<Position> frontier_set;
 
     for (const auto &[pos, type] : map_)
     {
-        if (type == CellType::FREE || type == CellType::ROBOT)
-        {
-            for (const auto &dir : DIRECTIONS)
-            {
-                Position neighbor(pos.row + dir.row, pos.col + dir.col);
+        if (type != CellType::FREE && type != CellType::ROBOT)
+            continue;
 
-                if (!is_explored(neighbor) && !checked.count(neighbor))
-                {
-                    frontier.push_back(neighbor);
-                    checked.insert(neighbor);
-                }
-            }
+        for (const auto &dir : DIRECTIONS)
+        {
+            Position neighbor(pos.row + dir.row, pos.col + dir.col);
+            if (!is_explored(neighbor))
+                frontier_set.insert(neighbor);
         }
     }
 
-    return frontier;
+    return std::vector<Position>(frontier_set.begin(), frontier_set.end());
 }
 
 /**
@@ -136,34 +115,17 @@ std::vector<std::vector<std::string>> Mapper::to_grid() const
     int rows = max_row_ - min_row_ + 1;
     int cols = max_col_ - min_col_ + 1;
 
-    // Inicializa grid com paredes
-    std::vector<std::vector<std::string>> grid(rows,
-                                               std::vector<std::string>(cols, "b"));
+    std::vector<std::vector<std::string>> grid(rows, std::vector<std::string>(cols, "b"));
 
-    // Preenche com células exploradas
+    const std::map<CellType, std::string> cell_map = {
+        {CellType::FREE, "f"}, {CellType::BLOCKED, "b"}, {CellType::ROBOT, "r"},
+        {CellType::TARGET, "t"}, {CellType::UNKNOWN, "?"}};
+
     for (const auto &[pos, type] : map_)
     {
         int r = pos.row - min_row_;
         int c = pos.col - min_col_;
-
-        switch (type)
-        {
-        case CellType::FREE:
-            grid[r][c] = "f";
-            break;
-        case CellType::BLOCKED:
-            grid[r][c] = "b";
-            break;
-        case CellType::ROBOT:
-            grid[r][c] = "r";
-            break;
-        case CellType::TARGET:
-            grid[r][c] = "t";
-            break;
-        case CellType::UNKNOWN:
-            grid[r][c] = "?";
-            break;
-        }
+        grid[r][c] = cell_map.at(type);
     }
 
     return grid;
@@ -172,43 +134,19 @@ std::vector<std::vector<std::string>> Mapper::to_grid() const
 void Mapper::print_map() const
 {
     auto grid = to_grid();
-
     if (grid.empty() || grid[0].empty())
-    {
-        std::cout << "\nMapa vazio" << std::endl;
         return;
-    }
 
-    std::cout << "\nMapa: " << grid.size() << "x" << grid[0].size() << std::endl;
-    std::cout << "Explorado: " << count_explored() << std::endl;
-    std::cout << "Fronteira: " << count_unknown() << std::endl;
+    std::cout << "\nMapa: " << grid.size() << "x" << grid[0].size() 
+              << " | Explorado: " << count_explored() << std::endl;
+
+    const std::map<char, char> display_map = {{'b', '#'}, {'f', ' '}, {'r', 'R'}, {'t', 'T'}, {'?', '?'}};
 
     for (const auto &row : grid)
     {
         for (const auto &cell : row)
-        {
-            char display = cell[0];
-            if (display == 'b')
-                std::cout << "#";
-            else if (display == 'f')
-                std::cout << " ";
-            else if (display == 'r')
-                std::cout << "R";
-            else if (display == 't')
-                std::cout << "T";
-            else
-                std::cout << "?";
-        }
+            std::cout << display_map.at(cell[0]);
         std::cout << std::endl;
     }
 }
 
-int Mapper::count_explored() const
-{
-    return map_.size();
-}
-
-int Mapper::count_unknown() const
-{
-    return get_frontier().size();
-}
