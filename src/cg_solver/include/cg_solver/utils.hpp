@@ -36,22 +36,22 @@ struct Position
 
 // As 4 direções de movimento: cima, baixo, esquerda, direita
 const std::vector<Position> DIRECTIONS = {
-    {-1, 0}, // cima
-    {1, 0},  // baixo
-    {0, -1}, // esquerda
-    {0, 1}   // direita
+    {0, 1},  // cima (up)
+    {0, -1}, // baixo (down)
+    {-1, 0}, // esquerda (left)
+    {1, 0}   // direita (right)
 };
 
 // Converte uma direção para string de comando
 inline std::string direction_to_string(const Position &dir)
 {
-    if (dir.row == -1)
-        return "up";
-    if (dir.row == 1)
-        return "down";
-    if (dir.col == -1)
-        return "left";
     if (dir.col == 1)
+        return "up";
+    if (dir.col == -1)
+        return "down";
+    if (dir.row == -1)
+        return "left";
+    if (dir.row == 1)
         return "right";
     return "";
 }

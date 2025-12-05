@@ -42,14 +42,14 @@ void Mapper::update_map(const Position &robot_pos,
     };
 
     std::vector<SensorDir> directions = {
-        {"up", -1, 0},
-        {"down", 1, 0},
-        {"left", 0, -1},
-        {"right", 0, 1},
-        {"up_left", -1, -1},
-        {"up_right", -1, 1},
-        {"down_left", 1, -1},
-        {"down_right", 1, 1}};
+        {"up", 0, 1},
+        {"down", 0, -1},
+        {"left", -1, 0},
+        {"right", 1, 0},
+        {"up_left", -1, 1},
+        {"up_right", 1, 1},
+        {"down_left", -1, -1},
+        {"down_right", 1, -1}};
 
     for (const auto &dir : directions)
     {
